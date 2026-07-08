@@ -101,26 +101,29 @@ const generateReply = async (history: ChatMessage[], userMessage: string) => {
 
 export const sendMessage = async (
   user_id: string,
-  userMessage: string
+  userMessage: string,
+  providedHistory?: ChatMessage[]
 ): Promise<{ reply: string }> => {
-  let history: ChatMessage[] = [];
+  let history: ChatMessage[] = providedHistory ?? [];
 
-  const { data, error: historyError } = await supabase
-    .from('chat_history')
-    .select('role, content')
-    .eq('user_id', user_id)
-    .order('created_at', { ascending: true })
-    .limit(20);
+  if (!providedHistory) {
+    const { data, error: historyError } = await supabase
+      .from('chat_history')
+      .select('role, content')
+      .eq('user_id', user_id)
+      .order('created_at', { ascending: true })
+      .limit(20);
 
-  if (historyError) {
-    if (!isSupabaseStorageError(historyError)) throw new Error(historyError.message);
-    history = memoryStore.chatHistory
-      .filter((row) => row.user_id === user_id)
-      .sort((a, b) => a.created_at.localeCompare(b.created_at))
-      .slice(-20)
-      .map((row) => ({ role: row.role, content: row.content }));
-  } else {
-    history = (data ?? []) as ChatMessage[];
+    if (historyError) {
+      if (!isSupabaseStorageError(historyError)) throw new Error(historyError.message);
+      history = memoryStore.chatHistory
+        .filter((row) => row.user_id === user_id)
+        .sort((a, b) => a.created_at.localeCompare(b.created_at))
+        .slice(-20)
+        .map((row) => ({ role: row.role, content: row.content }));
+    } else {
+      history = (data ?? []) as ChatMessage[];
+    }
   }
 
   const reply = await generateReply(history, userMessage);
@@ -159,3 +162,4 @@ export const getChatHistory = async (user_id: string, limit = 50) => {
 
   return data ?? [];
 };
+
